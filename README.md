@@ -1,4 +1,4 @@
-# os-eufi
+# os-uefi
 
 EUFI operating system written in x86 64-bit assembly
 
