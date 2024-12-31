@@ -2,3 +2,4 @@
 *.obj
 *.EFI
 *.efi
+*.hex
