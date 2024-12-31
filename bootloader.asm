@@ -73,8 +73,6 @@ struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
     .EnableCursor      POINTER
     .Mode              POINTER
 endstruc
-.first_byte db 0x44
-.second_byte db 0x22
 message db __utf16__ `\r\n\nyo people :)\n\nHow are you all?\0`
 
 start:
