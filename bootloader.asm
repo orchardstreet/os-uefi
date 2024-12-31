@@ -87,6 +87,7 @@ start:
 		je .start_print_string_successful
 		jmp .exit ;start print unsuccessful
 
+
 	.start_print_string_successful:
 		jmp $ ; loop forever
 
@@ -116,18 +117,15 @@ start:
 ; Each x64 Microsoft function needs 32 BYTES OF SCRATCH SPACE BEFORE
 ; being called.  Also, RSP must be 16 byte aligned before such a call.
 .get_value_to_adjust_rsp_around_ms_call: ; in: rsp,  out: [rsp_adjustment]
-	mov QWORD [rsp_adjustment], 32; creating scratch space for four shadow arguments - necessary
+	mov QWORD [rsp_adjustment], 32; creating scratch space for four shadow arguments
 		; rax % rcx = rdx; if rdx != 0 then rsp was misaligned
 		xor rdx, rdx
 		mov rax, rsp
 		add rax, 8; check rsp from before this function, 8 was subtracted for the return value
 		mov rcx, 16
 		div rcx
-		cmp rdx, 0
-		je .get_value_to_adjust_rsp_around_ms_call_aligned
-		add QWORD [rsp_adjustment], 8 ; rsp was misaligned, add 8 to scratch area so rsp will be aligned to 16 bytes
-		.get_value_to_adjust_rsp_around_ms_call_aligned:
-			ret
+		add QWORD [rsp_adjustment], rdx ; add result of (prior rsp) % 16 to scratch area so rsp will be aligned to 16 bytes
+		ret
 
 	
 
