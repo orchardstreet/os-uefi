@@ -3,3 +3,4 @@
 *.EFI
 *.efi
 *.hex
+*.fd

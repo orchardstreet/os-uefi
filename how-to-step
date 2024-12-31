@@ -1,0 +1,9 @@
+gdb BOOTX64.EFI
+set architecture i386:x86-64:intel
+target remote :1234
+continue
+ctl+c
+set $pc = $pc + 2
+nexti
+x/i $pc
+stepi

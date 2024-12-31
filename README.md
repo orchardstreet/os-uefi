@@ -17,4 +17,8 @@ doas apk update && doas apk add mtools clang nasm
 chmod +x assemble-link-create-image.sh
 ./assemble-link-create-image.sh
 ```
+### QEMU
+```
+doas apk add qemu-system-x86_64 ovmf
+```
 

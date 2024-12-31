@@ -3,7 +3,7 @@
 
 # This probably works for qemu though, our bootloader (BOOTX64.EFI) is a PE executable in a FAT image ! lmao
 
-# assemble
+# assemble for qemu
 nasm -f win64 bootloader.asm -o bootloader.obj
 # link with PE header (DOS header + COFF header + "optional" PE header) to create PE executable
 # my code starts at offset 0x200 in BOOTX64.EFI, and the program is filled with 0xCC till 1024 bytes for some reason
@@ -18,3 +18,15 @@ mmd -i bootloader.img ::EFI/BOOT
 # copy PE executable to FAT image
 mcopy -i bootloader.img BOOTX64.EFI ::EFI/BOOT/BOOTX64.EFI
 
+# put on USB
+lsblk
+read -n 1 -s -r -p "Press any key to continue if UEFI USB is plugged in with efi/boot folder"
+echo ""
+doas mount /dev/sda1 /mnt
+cp BOOTX64.EFI bootx64.efi
+doas rm -r /mnt/efi/boot/bootx64.efi
+doas cp bootx64.efi /mnt/efi/boot/bootx64.efi
+sync && sync
+doas umount /mnt
+sync && sync
+echo "Done, can restart and test USB if want"
