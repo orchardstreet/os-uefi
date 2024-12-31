@@ -86,6 +86,8 @@ start:
 	add rsp, 40
 	jmp $
 .error:
+	mov rax, 0
+	retn
 
 
 section .reloc ;UEFI supposedly requires this, even if empty
