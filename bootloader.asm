@@ -75,10 +75,14 @@ struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
 endstruc
 
 
+; Start of program
+;callable functions: print_string, fun_func
+;noreturn functions: print_error_exit
+;noreturn subroutine: error_exit
 start:
 	;prolog
 	;stack misaligned by 8
-	sub rsp, 8 * 4 ; shadow space for called functions - start EVERY function prolog like this, with last number highest number of arguments of a called function within this function
+	sub rsp, 4 * 8 ; shadow space for called functions - start EVERY function prolog like this, with first number highest number of arguments of a called function within this function
 	sub rsp, 8 ; align stack to 16 bytes
 
 	; Save values UEFI firmware gave to us
@@ -86,6 +90,10 @@ start:
 	mov QWORD [efi_handle], rcx ; Save EFI_HANDLE
 	mov QWORD [system_table_ptr], rdx ; Save system table pointer
 
+	; Clear screen
+	call clear_screen
+
+	; Print generic message
 	; print_string(generic_message_str)
 	mov rcx, generic_message_str
 	call print_string
@@ -100,10 +108,21 @@ start:
 		jmp $
 		mov rax, 0
 	;epilog
-		mov rsp, QWORD [stack_init]
+		;mov rsp, QWORD [stack_init]
+		add rsp, 4 * 8 + 8
 		retn
 
+; clears the screen with currently set background color
+clear_screen:
+	sub rsp, 4 * 8 + 8
 
+	; MICROSOFT FUNCTION CALL START
+	mov rcx, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
+	mov rcx, QWORD [rcx + EFI_SYSTEM_TABLE.ConOut]
+	call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.ClearScreen]
+	; MICROSOFT FUNCTION CALL END
+
+	add rsp, 4 * 8 + 8
 
 ; prints a string using EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString()
 print_string: ;in: rcx (address of string), out: rax (return value of OutputString)
@@ -132,11 +151,10 @@ print_error_exit:
 
 	mov rcx, generic_error_exit_str
 	call print_string
-
 error_exit:
+	jmp $
 	mov rax, 1
 	mov rsp, QWORD [stack_init]
-	jmp $
 	retn
 
 fun_func:
