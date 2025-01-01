@@ -76,68 +76,80 @@ endstruc
 
 
 start:
+	;prolog
 	; Save values UEFI firmware gave to us
-		mov QWORD [stack_init], rsp ; Save initial stack value
-		mov QWORD [system_table_ptr], rdx ; Save system table pointer
+	mov QWORD [stack_init], rsp ; Save return address, pop back before return
+	mov QWORD [efi_handle], rcx ; Save EFI_HANDLE
+	mov QWORD [system_table_ptr], rdx ; Save system table pointer
+	;stack misaligned by 8
+	sub rsp, 8 * 4 ; shadow space for called functions - start EVERY function prolog like this, with last number highest number of arguments of a called function within this function
+	sub rsp, 8 ; align stack to 16 bytes
 
 	; print_string(generic_message_str)
-		mov r8, generic_message_str
-		call .print_string
-		cmp rax, 0
-		je .start_print_string_successful
-		jmp .exit ;start print unsuccessful
-
+	mov rcx, generic_message_str
+	call print_string
+	cmp rax, 0
+	je .start_print_string_successful
+	jmp error_exit ;start print unsuccessful
 
 	.start_print_string_successful:
-		jmp $ ; loop forever
+
+	.start_exit:
+	;epilog
+		mov rax, 0
+		mov rsp, QWORD [stack_init]
+		jmp $
+		retn
+
+
 
 ; prints a string using EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString()
-; typically the arguments of a microsoft function are, in order: rcx, rdx, r8, r9
-; but OutputString() only has two arguments, so we only need to set up rcx and rdx
-.print_string: ;in: r8 (address of string), out: rax (return value of OutputString)
+print_string: ;in: rcx (address of string), out: rax (return value of OutputString)
+	;prolog
+	;stack misaligned by 8
+	push rbp
+	mov rbp, rsp
+	mov QWORD [rbp + 16], rcx
+	sub rsp, 4 * 8 ; shadow space
+
 	; MICROSOFT FUNCTION CALL START
-		call .get_value_to_adjust_rsp_around_ms_call ; return value is [rsp_adjustment]
-		sub rsp, QWORD [rsp_adjustment] ;adjust rsp by return value of prior call
-		mov rcx, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
-		mov rcx, QWORD [rcx + EFI_SYSTEM_TABLE.ConOut]
-		mov rdx, r8 ; rdx is second argument - address of string
-		call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString]
-		add rsp, QWORD [rsp_adjustment] ;adjust by [rsp_adjustment]
+	mov rcx, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
+	mov rcx, QWORD [rcx + EFI_SYSTEM_TABLE.ConOut]
+	mov rdx, QWORD [rbp + 16]; assign passed rcx to rdx - second argument - address of string
+	call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString]
 	; MICROSOFT FUNCTION CALL END
+
+	;epilog
+	add rsp, 4 * 8
+	pop rbp
 	ret
 
-.generic_error_exit: ;in: none, out: none
-	mov r8, generic_error_exit_str
-	call .print_string
-.exit:
-	mov rsp, QWORD [stack_init] ; Restore stack
-	mov rax, 0
+print_error_exit:
+	;prolog
+	sub rsp, 4 * 8 + 8
+
+	mov rcx, generic_error_exit_str
+	call print_string
+
+error_exit:
+	mov rax, 1
+	mov rsp, QWORD [stack_init]
+	jmp $
 	retn
 
-; Each x64 Microsoft function needs 32 BYTES OF SCRATCH SPACE BEFORE
-; being called.  Also, RSP must be 16 byte aligned before such a call.
-.get_value_to_adjust_rsp_around_ms_call: ; in: rsp,  out: [rsp_adjustment]
-	mov QWORD [rsp_adjustment], 32; creating scratch space for four shadow arguments
-		; rax % rcx = rdx; if rdx != 0 then rsp was misaligned
-		xor rdx, rdx
-		mov rax, rsp
-		add rax, 8; check rsp from before this function, 8 was subtracted for the return value
-		mov rcx, 16
-		div rcx
-		add QWORD [rsp_adjustment], rdx ; add result of (prior rsp) % 16 to scratch area so rsp will be aligned to 16 bytes
-		ret
 
-	
 
 section .reloc ;UEFI supposedly requires this, even if empty
 
-; https://web.archive.org/web/20170222171451/https://msdn.microsoft.com/en-us/library/9z1stfyw.aspx
-; registers preserved across all x64 function calls: r12, r13, r14, r15, rdi, rsi, rbx, rbp
-; microsft seems to prefer using r13-r15 in function prolog example code:
-; https://learn.microsoft.com/en-us/cpp/build/prolog-and-epilog?view=msvc-170
+
+
+; "The registers Rax, Rcx Rdx R8, R9, R10, R11, and XMM0-XMM5 are volatile and are, therefore, destroyed on function calls.
+;"The registers RBX, RBP, RDI, RSI, R12, R13, R14, R15, and XMM6-XMM15 are considered nonvolatile and must be saved and restored by a function that uses them."
+; "https://uefi.org/specs/UEFI/2.10/02_Overview.html"
 section .data
 	stack_init dq 0
 	system_table_ptr dq 0
-	rsp_adjustment dq 0
+	efi_handle dq 0
 	generic_message_str db __utf16__ `\r\n\nnew message two :)\n\nHow are you all?\r\n\0`
+	generic_message_str_two db __utf16__ `\r\n\ntwo new message two :)\n\nHow are you all?\r\n\0`
 	generic_error_exit_str db __utf16__ `error encountered, exiting...\r\n\0`
