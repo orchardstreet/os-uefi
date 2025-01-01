@@ -77,28 +77,30 @@ endstruc
 
 start:
 	;prolog
+	;stack misaligned by 8
+	sub rsp, 8 * 4 ; shadow space for called functions - start EVERY function prolog like this, with last number highest number of arguments of a called function within this function
+	sub rsp, 8 ; align stack to 16 bytes
+
 	; Save values UEFI firmware gave to us
 	mov QWORD [stack_init], rsp ; Save return address, pop back before return
 	mov QWORD [efi_handle], rcx ; Save EFI_HANDLE
 	mov QWORD [system_table_ptr], rdx ; Save system table pointer
-	;stack misaligned by 8
-	sub rsp, 8 * 4 ; shadow space for called functions - start EVERY function prolog like this, with last number highest number of arguments of a called function within this function
-	sub rsp, 8 ; align stack to 16 bytes
 
 	; print_string(generic_message_str)
 	mov rcx, generic_message_str
 	call print_string
 	cmp rax, 0
-	je .start_print_string_successful
-	jmp error_exit ;start print unsuccessful
+	je .start_print_string_successful_1
+	jmp error_exit
+	.start_print_string_successful_1:
 
-	.start_print_string_successful:
+	call fun_func
 
 	.start_exit:
-	;epilog
-		mov rax, 0
-		mov rsp, QWORD [stack_init]
 		jmp $
+		mov rax, 0
+	;epilog
+		mov rsp, QWORD [stack_init]
 		retn
 
 
@@ -107,26 +109,26 @@ start:
 print_string: ;in: rcx (address of string), out: rax (return value of OutputString)
 	;prolog
 	;stack misaligned by 8
-	push rbp
-	mov rbp, rsp
-	mov QWORD [rbp + 16], rcx
-	sub rsp, 4 * 8 ; shadow space
+	sub rsp, 4 * 8 + 8 ; shadow space + align to 16 bytes
+
+	mov QWORD [rsp + 48], rcx ;store in shadow space for rcx lmao; https://www.scss.tcd.ie/jeremy.jones/CSU34021/2%20IA32%20+%20x64.pdf page 39
 
 	; MICROSOFT FUNCTION CALL START
 	mov rcx, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
 	mov rcx, QWORD [rcx + EFI_SYSTEM_TABLE.ConOut]
-	mov rdx, QWORD [rbp + 16]; assign passed rcx to rdx - second argument - address of string
+	mov rdx, QWORD [rsp + 48]; assign passed rcx to rdx - second argument - address of string
 	call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString]
 	; MICROSOFT FUNCTION CALL END
 
 	;epilog
-	add rsp, 4 * 8
-	pop rbp
+	add rsp, 4 * 8 + 8
 	ret
 
+; noreturn function
 print_error_exit:
 	;prolog
-	sub rsp, 4 * 8 + 8
+	;stack misaligned by 8
+	sub rsp, 4 * 8 + 8 ; shadow space + align to 16 bytes
 
 	mov rcx, generic_error_exit_str
 	call print_string
@@ -137,6 +139,20 @@ error_exit:
 	jmp $
 	retn
 
+fun_func:
+	;prolog
+	sub rsp, 4 * 8 + 8
+
+	; print_string(generic_message_str)
+	mov rcx, generic_message_str
+	call print_string
+	cmp rax, 0
+	je .fun_func_successful_1
+	jmp error_exit
+	.fun_func_successful_1:
+
+	;epilog
+	add rsp, 4 * 8 + 8
 
 
 section .reloc ;UEFI supposedly requires this, even if empty
