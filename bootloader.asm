@@ -24,11 +24,6 @@ start:
 	mov QWORD [efi_handle], rcx ; Save EFI_HANDLE
 	mov QWORD [system_table_ptr], rdx ; Save system table pointer
 
-	jmp $
-	mov eax, EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL_size
-	mov eax, EFI_SYSTEM_TABLE_size
-	mov eax, EFI_TABLE_HEADER_size
-
 	; Reset screen
 	mov rcx, 0 ;argument for reset screen, no verification (verification can take a long time)
 	call reset_screen
