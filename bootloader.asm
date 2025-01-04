@@ -25,12 +25,11 @@ start:
 	mov QWORD [system_table_ptr], rdx ; Save system table pointer
 
 	; Reset screen
-	mov rcx, 0 ;argument for reset screen, no verification (verification can take a long time)
-	call reset_screen
+	call clear_screen
 	cmp rax, 0
-	je .reset_screen_successful_1
+	je .clear_screen_successful_1
 	jmp error_exit
-	.reset_screen_successful_1:
+	.clear_screen_successful_1:
 
 	; Print generic message
 	; print_string(generic_message_str)
@@ -117,7 +116,7 @@ fun_func:
 	sub rsp, 4 * 8 + 8
 
 	; print_string(generic_message_str)
-	mov rcx, generic_message_str_two
+	mov rcx, generic_message_str
 	call print_string
 	cmp rax, 0
 	je .fun_func_successful_1
@@ -181,7 +180,6 @@ section .rdata align=16
 	%endmacro
 
 	struc EFI_TABLE_HEADER ;nasm sees this as 24 bytes
-		UINT64_ALIGN
 		.Signature  UINT64
 		UINT32_ALIGN
 		.Revision   UINT32
@@ -195,7 +193,6 @@ section .rdata align=16
 	endstruc
 
 	struc EFI_SYSTEM_TABLE ;nasm sees this as 120 bytes
-		POINTER_ALIGN
 		.Hdr                  resb EFI_TABLE_HEADER_size ;24
 		POINTER_ALIGN
 		.FirmwareVendor       POINTER ;8
@@ -225,7 +222,6 @@ section .rdata align=16
 	endstruc
 
 	struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL ;nasm sees this as 80 bytes
-		POINTER_ALIGN
 		.Reset             POINTER
 		POINTER_ALIGN
 		.OutputString      POINTER
@@ -249,5 +245,4 @@ section .rdata align=16
 	endstruc
 
 	generic_message_str db __utf16__ `\rOS-UEFI BOOTLOADER v0.1\r\n\0`
-	generic_message_str_two db __utf16__ `\rCopyright William Lupinacci\r\n\0`
 	generic_error_exit_str db __utf16__ `error encountered, exiting...\r\n\0`
