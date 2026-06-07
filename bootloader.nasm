@@ -1,3 +1,6 @@
+;callable functions: print_string
+;noreturn functions: print_error_exit
+;noreturn subroutine: error_exit
 ; See https://web.archive.org/web/20190706212328/https://gist.github.com/AdrianKoshka/5b6f8b6803092d8b108cda2f8034539a
 ; for creating a UEFI USB properly, then move bootx64.efi to /efi/usb on the first USB partition
 ;64-bit code
@@ -8,15 +11,11 @@ default rel
 section .text
 global start
 
-
-; Start of program
-;callable functions: print_string, fun_func
-;noreturn functions: print_error_exit
-;noreturn subroutine: error_exit
+; ################# START OF PROGRAM #######################
 start:
-	;prolog
+	;prologue
 	;stack misaligned by 8
-	sub rsp, 4 * 8 ; shadow space for called functions - start EVERY function prolog like this, with first number highest number of arguments of a called function within this function
+	sub rsp, 4 * 8 ; shadow space for called functions - start EVERY function prologue like this, with first number highest number of arguments of a called function within this function
 	sub rsp, 8 ; align stack to 16 bytes
 
 	; Save values UEFI firmware gave to us
@@ -24,7 +23,7 @@ start:
 	mov QWORD [efi_handle], rcx ; Save EFI_HANDLE
 	mov QWORD [system_table_ptr], rdx ; Save system table pointer
 
-	; Reset screen
+	; Clear screen
 	call clear_screen
 	cmp rax, 0
 	je .clear_screen_successful_1
@@ -40,31 +39,26 @@ start:
 	jmp error_exit
 	.start_print_string_successful_1:
 
-	call fun_func
+; ########## CONTINUE HERE ###############
 
-	.start_exit:
+
+
+
+
+
+
+
+
+; ########## EXIT PROGRAM ################
+
+	.exit:
 		jmp $
 		mov rax, 0
-	;epilog
 		;mov rsp, QWORD [stack_init]
 		add rsp, 4 * 8 + 8
 		retn
 
-; sets cursor position to 0,0, clears screen to default background color, and optionally performs verification
-; of device functioning
-reset_screen: ;in: rcx (0 for no verification, 1 for verification), out: rax
-	sub rsp, 4 * 8 + 8
-
-	mov QWORD [rsp + 48], rcx ;store in shadow space for rcx lmao; https://www.scss.tcd.ie/jeremy.jones/CSU34021/2%20IA32%20+%20x64.pdf page 39
-
-	; MICROSOFT FUNCTION CALL START
-	mov rcx, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
-	mov rcx, QWORD [rcx + EFI_SYSTEM_TABLE.ConOut]
-	mov rdx, QWORD [rsp + 48]; assign passed rcx to rdx - second argument - 0 for no verification, 1 for verification
-	call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.Reset]
-	; MICROSOFT FUNCTION CALL END
-
-	add rsp, 4 * 8 + 8
+; ############## SUBROUTINES #########################33
 
 ; clears the screen with currently set background color
 clear_screen:
@@ -80,7 +74,7 @@ clear_screen:
 
 ; prints a string using EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString()
 print_string: ;in: rcx (address of string), out: rax (return value of OutputString)
-	;prolog
+	;prologue
 	;stack misaligned by 8
 	sub rsp, 4 * 8 + 8 ; shadow space + align to 16 bytes
 
@@ -93,13 +87,13 @@ print_string: ;in: rcx (address of string), out: rax (return value of OutputStri
 	call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString]
 	; MICROSOFT FUNCTION CALL END
 
-	;epilog
+	;epilogue
 	add rsp, 4 * 8 + 8
 	ret
 
 ; noreturn function
 print_error_exit:
-	;prolog
+	;prologue
 	;stack misaligned by 8
 	sub rsp, 4 * 8 + 8 ; shadow space + align to 16 bytes
 
@@ -111,27 +105,15 @@ error_exit:
 	mov rsp, QWORD [stack_init]
 	retn
 
-fun_func:
-	;prolog
-	sub rsp, 4 * 8 + 8
-
-	; print_string(generic_message_str)
-	mov rcx, generic_message_str
-	call print_string
-	cmp rax, 0
-	je .fun_func_successful_1
-	jmp error_exit
-	.fun_func_successful_1:
-
-	;epilog
+	;epilogue
 	add rsp, 4 * 8 + 8
 
 
 section .reloc ;UEFI supposedly requires this, even if empty
 
-; "The registers Rax, Rcx Rdx R8, R9, R10, R11, and XMM0-XMM5 are volatile and are, therefore, destroyed on function calls.
-;"The registers RBX, RBP, RDI, RSI, R12, R13, R14, R15, and XMM6-XMM15 are considered nonvolatile and must be saved and restored by a function that uses them."
-; "https://uefi.org/specs/UEFI/2.10/02_Overview.html"
+
+
+; ######## DATA #########################
 section .data align=16
 	stack_init dq 0
 	system_table_ptr dq 0
@@ -189,7 +171,7 @@ section .rdata align=16
 		.CRC32      UINT32
 		UINT32_ALIGN
 		.Reserved   UINT32
-		resb (($ - EFI_TABLE_HEADER.Signature) % 8)
+		alignb 8
 	endstruc
 
 	struc EFI_SYSTEM_TABLE ;nasm sees this as 120 bytes
@@ -218,7 +200,100 @@ section .rdata align=16
 		.NumberOfTableEntries UINTN ;8
 		POINTER_ALIGN
 		.ConfigurationTable   POINTER ;8
-		resb (($ - EFI_SYSTEM_TABLE.Hdr) % 8) ;this is actually padding 4 bytes so it is working
+		alignb 8
+	endstruc
+
+	struc EFI_BOOT_SERVICES
+		.Hdr			   resb EFI_TABLE_HEADER_size ;24	
+		POINTER_ALIGN
+		.RaiseTPL		   POINTER
+		POINTER_ALIGN
+		.RestoreTPL		   POINTER
+		POINTER_ALIGN
+		.AllocatePages	   POINTER
+		POINTER_ALIGN
+		.FreePages		   POINTER
+		POINTER_ALIGN
+		.GetMemoryMap      POINTER
+		POINTER_ALIGN
+		.AllocatePool	   POINTER
+		POINTER_ALIGN
+		.FreePool		   POINTER
+		POINTER_ALIGN
+		.CreateEvent	   POINTER
+		POINTER_ALIGN
+		.SetTime		   POINTER
+		POINTER_ALIGN
+		.WaitForEvent	   POINTER
+		POINTER_ALIGN
+		.SignalEvent	   POINTER
+		POINTER_ALIGN
+		.CloseEvent	       POINTER
+		POINTER_ALIGN
+		.CheckEvent        POINTER
+		POINTER_ALIGN
+		.InstallProtocolInterface    POINTER
+		POINTER_ALIGN
+		.ReinstallProtocolInterface  POINTER
+		POINTER_ALIGN
+		.UninstallProtocolInterface  POINTER
+		POINTER_ALIGN
+		.HandleProtocol    POINTER
+		POINTER_ALIGN
+		.Reserved	       POINTER
+		POINTER_ALIGN
+		.RegisterProtcolNotify       POINTER
+		POINTER_ALIGN
+		.LocateHandle	   POINTER
+		POINTER_ALIGN
+		.LocateDevicePath  POINTER
+		POINTER_ALIGN
+		.InstallConfigurationTable   POINTER
+		POINTER_ALIGN
+		.LoadImage         POINTER
+		POINTER_ALIGN
+		.StartImage        POINTER
+		POINTER_ALIGN
+		.Exit              POINTER
+		POINTER_ALIGN
+		.UnloadImage       POINTER
+		POINTER_ALIGN
+		.ExitBootServices  POINTER
+		POINTER_ALIGN
+		.GetNextMonotonicCount       POINTER
+		POINTER_ALIGN
+		.Stall             POINTER
+		POINTER_ALIGN
+		.SetWatchdogTimer  POINTER
+		POINTER_ALIGN
+		.ConnectController POINTER
+		POINTER_ALIGN
+		.DisconnectController        POINTER
+		POINTER_ALIGN
+		.OpenProtocol      POINTER
+		POINTER_ALIGN
+		.CloseProtocol     POINTER
+		POINTER_ALIGN
+		.OpenProtocolInformation     POINTER
+		POINTER_ALIGN
+		.ProtocolsPerHandle          POINTER
+		POINTER_ALIGN
+		.LocateHandleBuffer          POINTER
+		POINTER_ALIGN
+		.LocateProtocol              POINTER
+		POINTER_ALIGN
+		.InstallMultipleProtocolInterfaces    POINTER
+		POINTER_ALIGN
+		.UninstallMultipleProtocolInterfaces  POINTER
+		POINTER_ALIGN
+		.CalculateCRC32    POINTER
+		POINTER_ALIGN
+		.CopyMem           POINTER
+		POINTER_ALIGN
+		.SetMem            POINTER
+		POINTER_ALIGN
+		.CreateEventEx     POINTER
+		alignb 8
 	endstruc
 
 	struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL ;nasm sees this as 80 bytes
@@ -241,8 +316,12 @@ section .rdata align=16
 		.EnableCursor      POINTER
 		POINTER_ALIGN
 		.Mode              POINTER
-		resb (($ - EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.Reset) % 8)
+		alignb 8
 	endstruc
 
 	generic_message_str db __utf16__ `\rOS-UEFI BOOTLOADER v0.1\r\n\0`
 	generic_error_exit_str db __utf16__ `error encountered, exiting...\r\n\0`
+
+; "The registers Rax, Rcx Rdx R8, R9, R10, R11, and XMM0-XMM5 are volatile and are, therefore, destroyed on function calls.
+;"The registers RBX, RBP, RDI, RSI, R12, R13, R14, R15, and XMM6-XMM15 are considered nonvolatile and must be saved and restored by a function that uses them."
+; "https://uefi.org/specs/UEFI/2.10/02_Overview.html"

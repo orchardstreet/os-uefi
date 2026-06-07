@@ -6,9 +6,14 @@ UEFI operating system written in x86 64-bit assembly
 
 ## Debian-based Linux
 ```
-sudo apt update && sudo apt install mtools clang nasm -y
+sudo apt update && sudo apt install lld dosfstools mtools clang nasm -y
 chmod +x assemble-link-create-image.sh
 ./assemble-link-create-image.sh
+```
+
+### QEMU
+```
+sudo apt install qemu-system-x86 ovmf -y
 ```
 
 ## Alpine Linux
