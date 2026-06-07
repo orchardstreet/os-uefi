@@ -1,3 +1,5 @@
+
+
 # Check if the file is already in the current directory
 if [ ! -f "./OVMF.fd" ]; then
     echo "Local OVMF.fd not found. Searching system..."
@@ -24,7 +26,8 @@ else
     echo "Local OVMF.fd already exists. Skipping copy."
 fi
 
+# DEBUG WITH GDB
 qemu-system-x86_64 -cpu qemu64 \
   -drive if=pflash,format=raw,unit=0,file=./OVMF.fd,readonly=on \
-  -drive if=pflash,format=raw,unit=1,file=./OVMF.fd -device virtio-gpu \
-  -net none -drive file=bootloader.img,format=raw,index=0,media=disk
+  -drive if=pflash,format=raw,unit=1,file=./OVMF.fd \
+  -net none -drive file=bootloader.img,format=raw,index=0,media=disk -S -s

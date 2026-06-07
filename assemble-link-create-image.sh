@@ -34,12 +34,12 @@ fi
 lsblk
 read -n 1 -s -r -p "Press any key to continue if UEFI USB is plugged in with efi/boot folder"
 echo ""
-doas mount /dev/sda1 /mnt
+sudo mount /dev/sda1 /mnt
 cp BOOTX64.EFI bootx64.efi
-doas rm -r /mnt/efi/boot/bootx64.efi
+sudo rm -r /mnt/efi/boot/bootx64.efi
 sync && sync
-doas cp bootx64.efi /mnt/efi/boot/bootx64.efi
+sudo cp bootx64.efi /mnt/efi/boot/bootx64.efi
 sync && sync
-doas umount /mnt
+sudo umount /mnt
 sync && sync
 echo "Done, can restart and test USB if want"

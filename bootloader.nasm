@@ -41,12 +41,23 @@ start:
 
 ; ########## CONTINUE HERE ###############
 
+	; Start GOP
+	call gop_start
+	cmp rax, 0
+	je .gop_started
+	; Print Graphics Device not found and exit
+	mov rcx, gop_error_str
+	call print_string
+	jmp error_exit
+	.gop_started:
 
-
-
-
-
-
+	; Print GOP started
+	mov rcx, gop_started_str
+	call print_string
+	cmp rax, 0
+	je .start_print_string_successful_2
+	jmp error_exit
+	.start_print_string_successful_2:
 
 
 ; ########## EXIT PROGRAM ################
@@ -71,6 +82,21 @@ clear_screen:
 	; MICROSOFT FUNCTION CALL END
 
 	add rsp, 4 * 8 + 8
+	ret
+
+gop_start:
+	sub rsp, 4 * 8 + 8
+
+	mov r10, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
+	mov r10, QWORD [r10 + EFI_SYSTEM_TABLE.BootServices]
+	mov rcx, graphics_output_protocol_guid
+	mov rdx, 0
+	mov r8, efi_graphics_output_protocol_struc_ptr 
+	call [r10 + EFI_BOOT_SERVICES.LocateProtocol]
+
+	; MICROSOFT FUNCTION CALL END
+	add rsp, 4 * 8 + 8
+	ret
 
 ; prints a string using EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString()
 print_string: ;in: rcx (address of string), out: rax (return value of OutputString)
@@ -296,6 +322,17 @@ section .rdata align=16
 		alignb 8
 	endstruc
 
+	struc EFI_GRAPHICS_OUTPUT_PROTOCOL
+		.QueryMode		POINTER
+		POINTER_ALIGN
+		.SetMode		POINTER
+		POINTER_ALIGN
+		.Blt			POINTER
+		POINTER_ALIGN
+		.Mode			POINTER
+		alignb 8
+	endstruc
+
 	struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL ;nasm sees this as 80 bytes
 		.Reset             POINTER
 		POINTER_ALIGN
@@ -319,8 +356,20 @@ section .rdata align=16
 		alignb 8
 	endstruc
 
+	gop_started_str db __utf16__ `\rGOP Started...\r\n\0`
+	gop_error_str db __utf16__ `\rCould not find a Graphics Device, please insert\r\na GPU or use an Intel iGPU\r\n\0`
 	generic_message_str db __utf16__ `\rOS-UEFI BOOTLOADER v0.1\r\n\0`
-	generic_error_exit_str db __utf16__ `error encountered, exiting...\r\n\0`
+	generic_error_exit_str db __utf16__ `\rerror encountered, exiting...\r\n\0`
+	alignb 4
+	graphics_output_protocol_guid:
+	dd 0x9042a9de
+	dw 0x23dc
+	dw 0x4a38
+	db 0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a
+
+	section .bss
+	alignb 8
+	efi_graphics_output_protocol_struc_ptr resb EFI_GRAPHICS_OUTPUT_PROTOCOL_size
 
 ; "The registers Rax, Rcx Rdx R8, R9, R10, R11, and XMM0-XMM5 are volatile and are, therefore, destroyed on function calls.
 ;"The registers RBX, RBP, RDI, RSI, R12, R13, R14, R15, and XMM6-XMM15 are considered nonvolatile and must be saved and restored by a function that uses them."
