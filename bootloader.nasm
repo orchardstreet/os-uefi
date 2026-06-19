@@ -1,7 +1,7 @@
 ; ##########################################################
 ; ###################### OS UEFI ###########################
 ; ##########################################################
-; ########### Copyright William M. Lupinacci 2026 ##########
+; ######### Copyright William M. Lupinacci - 2026 ##########
 ; ##########################################################
 
 ; Callable subroutines: clear_string, get_gop_framebuffer, print_string
@@ -46,26 +46,12 @@ start:
 	jne error_exit
 
 
-; ########## CONTINUE HERE ###############
-
-
-
-
-
-
-
-
-
-
-
-
 ; ########## EXIT PROGRAM ################
 
 exit:
 	xor rax, rax
 error_exit:
 	jmp $
-	;mov rsp, QWORD [stack_init]
 	add rsp, 4 * 8 + 8
 	retn
 
@@ -120,7 +106,6 @@ get_gop_framebuffer:
 
 	; Save framebuffer info from efi_graphics_output_protocol_mode struct into longer term framebuffer struct
 	mov rcx, [rcx + EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE.Info] ;rcx has pointer to EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
-	mov r9, rcx
 	; given to us by UEFI into our own struct called framebuffer
 	mov r8d, DWORD [rcx + EFI_GRAPHICS_OUTPUT_MODE_INFORMATION.HorizontalResolution]
 	mov DWORD [framebuffer + framebuffer_struct.Width], r8d
@@ -146,7 +131,7 @@ print_string: ;in: rcx (address of string), out: rax (return value of OutputStri
 	;stack misaligned by 8
 	sub rsp, 4 * 8 + 8 ; shadow space + align to 16 bytes
 
-	mov QWORD [rsp + 48], rcx ;store in shadow space for rcx lmao; https://www.scss.tcd.ie/jeremy.jones/CSU34021/2%20IA32%20+%20x64.pdf page 39
+	mov QWORD [rsp + 48], rcx ;store in shadow space for rcx ; https://www.scss.tcd.ie/jeremy.jones/CSU34021/2%20IA32%20+%20x64.pdf page 39
 
 	; MICROSOFT FUNCTION CALL START
 	mov rcx, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
@@ -155,13 +140,13 @@ print_string: ;in: rcx (address of string), out: rax (return value of OutputStri
 	call [rcx + EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL.OutputString]
 	; MICROSOFT FUNCTION CALL END
 
-	;epilogue
+	; epilogue
 	add rsp, 4 * 8 + 8
 	ret
 
 
 
-section .reloc ;UEFI supposedly requires this, even if empty
+section .reloc ; UEFI requires this, even if empty
 
 
 
@@ -442,7 +427,6 @@ section .rdata align=16
 	gop_framebuffer_initialized_str db __utf16__ `\rGOP framebuffer initialized...\r\n\0`
 	gop_error_str db __utf16__ `\rCould not find a Graphics Device, please insert\r\na GPU or use an Intel iGPU\r\n\0`
 	welcome_message_str db __utf16__ `\rOS-UEFI BOOTLOADER v0.1\r\n\0`
-	generic_error_exit_str db __utf16__ `\rError encountered, exiting...\r\n\0`
 	alignb 4
 	graphics_output_protocol_guid:
 	dd 0x9042a9de
@@ -453,8 +437,6 @@ section .rdata align=16
 section .bss
 	alignb 8
 	efi_graphics_output_protocol_struc_ptr resq 1 
-	alignb 8
-	efi_graphics_output_mode_information_ptr resq 1
 	alignb 8
 	framebuffer resb framebuffer_struct_size
 
