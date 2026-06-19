@@ -26,33 +26,23 @@ start:
 	; Clear screen
 	call clear_screen
 	cmp rax, 0
-	je .clear_screen_successful_1
-	jmp error_exit
-	.clear_screen_successful_1:
+	jne error_exit
 
-	; Print generic message
-	; print_string(generic_message_str)
-	mov rcx, generic_message_str
+	; Print welcome message
+	mov rcx, welcome_message_str
 	call print_string
-	cmp rax, 0
-	je .start_print_string_successful_1
-	jmp error_exit
-	.start_print_string_successful_1:
-
-; ########## CONTINUE HERE ###############
-
-	; Start GOP
-	call gop_start
 	cmp rax, 0
 	jne error_exit
 
-	; Print GOP started
-	mov rcx, gop_started_str
-	call print_string
+	; Get GOP framebuffer, exit if no graphics device found
+	call get_gop_framebuffer
 	cmp rax, 0
-	je .start_print_string_successful_2
-	jmp error_exit
-	.start_print_string_successful_2:
+	jne error_exit
+
+
+; ########## CONTINUE HERE ###############
+
+
 
 
 ; ########## EXIT PROGRAM ################
@@ -79,7 +69,7 @@ clear_screen:
 	add rsp, 4 * 8 + 8
 	ret
 
-gop_start:
+get_gop_framebuffer:
 	sub rsp, 4 * 8 + 8
 
 	mov r10, QWORD [system_table_ptr] 
@@ -90,11 +80,17 @@ gop_start:
 	call [r10 + EFI_BOOT_SERVICES.LocateProtocol]
 	cmp rax, 0
 	je .graphics_device_found
-	mov rcx, gop_error_str ; Graphics device not found, return and exit with error
+	push rax ; Graphics device not found, print warning, return and exit with error
+	mov rcx, gop_error_str 
 	call print_string
+	pop rax
 	jmp .end
 
 	.graphics_device_found: ; Graphics device found
+	mov rcx, graphics_device_detected_str
+	call print_string ; Print "graphics device detected"
+	cmp rax, 0
+	jne .end
 	
 	; Save framebuffer info from efi_graphics_output_mode_information struct into longer term framebuffer struct
 	mov rcx, [efi_graphics_output_protocol_struc_ptr]
@@ -116,7 +112,14 @@ gop_start:
 	mov r8d, DWORD [rcx + EFI_GRAPHICS_OUTPUT_MODE_INFORMATION.PixelsPerScanLine]
 	mov DWORD [framebuffer + framebuffer_struct.PixelsPerScanline], r8d
 
-	.end:
+	; Print "framebuffer intialized"
+	mov rcx, gop_framebuffer_initialized_str
+	call print_string
+	cmp rax, 0
+	jne .end
+
+	xor rax, rax ; success end
+	.end: ; error end
 	add rsp, 4 * 8 + 8
 	ret
 
@@ -434,10 +437,11 @@ endstruc
 		alignb 8
 	endstruc
 
-	gop_started_str db __utf16__ `\rGOP Started...\r\n\0`
+	graphics_device_detected_str db __utf16__ `\rGraphics device detected...\r\n\0`
+	gop_framebuffer_initialized_str db __utf16__ `\rGOP framebuffer initialized...\r\n\0`
 	gop_error_str db __utf16__ `\rCould not find a Graphics Device, please insert\r\na GPU or use an Intel iGPU\r\n\0`
-	generic_message_str db __utf16__ `\rOS-UEFI BOOTLOADER v0.1\r\n\0`
-	generic_error_exit_str db __utf16__ `\rerror encountered, exiting...\r\n\0`
+	welcome_message_str db __utf16__ `\rOS-UEFI BOOTLOADER v0.1\r\n\0`
+	generic_error_exit_str db __utf16__ `\rError encountered, exiting...\r\n\0`
 	alignb 4
 	graphics_output_protocol_guid:
 	dd 0x9042a9de
