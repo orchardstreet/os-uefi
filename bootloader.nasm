@@ -44,12 +44,7 @@ start:
 	; Start GOP
 	call gop_start
 	cmp rax, 0
-	je .gop_started
-	; Print Graphics Device not found and exit
-	mov rcx, gop_error_str
-	call print_string
-	jmp error_exit
-	.gop_started:
+	jne error_exit
 
 	; Print GOP started
 	mov rcx, gop_started_str
@@ -87,14 +82,41 @@ clear_screen:
 gop_start:
 	sub rsp, 4 * 8 + 8
 
-	mov r10, QWORD [system_table_ptr] ; rcx is first argument - pointer to EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL
+	mov r10, QWORD [system_table_ptr] 
 	mov r10, QWORD [r10 + EFI_SYSTEM_TABLE.BootServices]
 	mov rcx, graphics_output_protocol_guid
 	mov rdx, 0
 	mov r8, efi_graphics_output_protocol_struc_ptr 
 	call [r10 + EFI_BOOT_SERVICES.LocateProtocol]
+	cmp rax, 0
+	je .graphics_device_found
+	mov rcx, gop_error_str ; Graphics device not found, return and exit with error
+	call print_string
+	jmp .end
 
-	; MICROSOFT FUNCTION CALL END
+	.graphics_device_found: ; Graphics device found
+	
+	; Save framebuffer info from efi_graphics_output_mode_information struct into longer term framebuffer struct
+	mov rcx, [efi_graphics_output_protocol_struc_ptr]
+	mov rcx, [rcx + EFI_GRAPHICS_OUTPUT_PROTOCOL.Mode] ;rcx has pointer to EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE
+	mov r8, QWORD [rcx + EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE.FrameBufferBase]
+	mov QWORD [framebuffer + framebuffer_struct.BaseAddress], r8
+	mov r8, QWORD [rcx + EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE.FrameBufferSize]
+	mov QWORD [framebuffer + framebuffer_struct.BufferSize], r8
+
+
+	; Save framebuffer info from efi_graphics_output_protocol_mode struct into longer term framebuffer struct
+	mov rcx, [rcx + EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE.Info] ;rcx has pointer to EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
+	mov r9, rcx
+	; given to us by UEFI into our own struct called framebuffer
+	mov r8d, DWORD [rcx + EFI_GRAPHICS_OUTPUT_MODE_INFORMATION.HorizontalResolution]
+	mov DWORD [framebuffer + framebuffer_struct.Width], r8d
+	mov r8d, DWORD [rcx + EFI_GRAPHICS_OUTPUT_MODE_INFORMATION.VerticalResolution]
+	mov DWORD [framebuffer + framebuffer_struct.Height], r8d
+	mov r8d, DWORD [rcx + EFI_GRAPHICS_OUTPUT_MODE_INFORMATION.PixelsPerScanLine]
+	mov DWORD [framebuffer + framebuffer_struct.PixelsPerScanline], r8d
+
+	.end:
 	add rsp, 4 * 8 + 8
 	ret
 
@@ -333,6 +355,62 @@ section .rdata align=16
 		alignb 8
 	endstruc
 
+
+	struc EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE
+		.MaxMode			UINT32
+		UINT32_ALIGN
+		.Mode 				UINT32
+		POINTER_ALIGN
+		.Info				POINTER
+		UINTN_ALIGN
+		.SizeofInfo			UINTN
+		POINTER_ALIGN
+		.FrameBufferBase	POINTER
+		UINTN_ALIGN
+		.FrameBufferSize	UINTN
+		alignb 8
+	endstruc
+
+struc EFI_PIXEL_BITMASK
+	.RedMask		UINT32
+	UINT32_ALIGN
+	.GreenMask		UINT32
+	UINT32_ALIGN
+	.BlueMask		UINT32
+	UINT32_ALIGN
+	.ReservedMask	UINT32
+	alignb 4
+endstruc
+
+
+struc EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
+	.Version				UINT32
+	UINT32_ALIGN
+	.HorizontalResolution	UINT32
+	UINT32_ALIGN
+	.VerticalResolution		UINT32
+	UINT32_ALIGN
+	.PixelFormat			UINT32
+	UINT32_ALIGN
+	.PixelInformation		resb EFI_PIXEL_BITMASK_size
+	UINT32_ALIGN
+	.PixelsPerScanLine		UINT32
+	alignb 4
+endstruc
+
+struc framebuffer_struct
+	.BaseAddress		UINT64
+	UINT64_ALIGN
+	.BufferSize			UINT64
+	UINT32_ALIGN
+	.Width				UINT32
+	UINT32_ALIGN
+	.Height				UINT32
+	UINT32_ALIGN
+	.PixelsPerScanline	UINT32
+	alignb 8
+endstruc
+
 	struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL ;nasm sees this as 80 bytes
 		.Reset             POINTER
 		POINTER_ALIGN
@@ -369,7 +447,11 @@ section .rdata align=16
 
 	section .bss
 	alignb 8
-	efi_graphics_output_protocol_struc_ptr resb EFI_GRAPHICS_OUTPUT_PROTOCOL_size
+	efi_graphics_output_protocol_struc_ptr resq 1 
+	alignb 8
+	efi_graphics_output_mode_information_ptr resq 1
+	alignb 8
+	framebuffer resb framebuffer_struct_size
 
 ; "The registers Rax, Rcx Rdx R8, R9, R10, R11, and XMM0-XMM5 are volatile and are, therefore, destroyed on function calls.
 ;"The registers RBX, RBP, RDI, RSI, R12, R13, R14, R15, and XMM6-XMM15 are considered nonvolatile and must be saved and restored by a function that uses them."
