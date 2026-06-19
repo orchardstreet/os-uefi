@@ -4,7 +4,7 @@
 ; ######### Copyright William M. Lupinacci - 2026 ##########
 ; ##########################################################
 
-; Callable subroutines: clear_string, get_gop_framebuffer, print_string
+; Callable subroutines: clear_screen, get_gop_framebuffer, print_string
 ; See https://web.archive.org/web/20190706212328/https://gist.github.com/AdrianKoshka/5b6f8b6803092d8b108cda2f8034539a
 ; for creating a UEFI USB properly, then move bootx64.efi to /efi/usb on the first USB partition
 
