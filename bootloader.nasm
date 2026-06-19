@@ -20,7 +20,8 @@ global start
 start:
 	;prologue
 	;stack misaligned by 8
-	sub rsp, 4 * 8 ; shadow space for called functions - start EVERY function prologue like this, with first number highest number of arguments of a called function within this function
+	sub rsp, 4 * 8 ; shadow space for called functions - start EVERY function prologue like this, 
+	;with first number highest number of arguments of a called function within this function.
 	sub rsp, 8 ; align stack to 16 bytes
 
 	; Save values UEFI firmware gave to us
@@ -96,10 +97,10 @@ get_gop_framebuffer:
 	; MICROSOFT FUNCTION CALL END
 	cmp rax, 0
 	je .graphics_device_found
-	push rax ; Graphics device not found, print warning, return and exit with error
+	mov QWORD [rsp + 48], rax ; Graphics device not found, print warning, return and exit with error
 	mov rcx, gop_error_str 
 	call print_string
-	pop rax
+	mov rax, QWORD [rsp + 48] ; Saved rax in shadow space
 	jmp .end
 
 	.graphics_device_found: ; Graphics device found
@@ -449,7 +450,7 @@ section .rdata align=16
 	dw 0x4a38
 	db 0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a
 
-	section .bss
+section .bss
 	alignb 8
 	efi_graphics_output_protocol_struc_ptr resq 1 
 	alignb 8
