@@ -45,6 +45,14 @@ start:
 
 
 
+
+
+
+
+
+
+
+
 ; ########## EXIT PROGRAM ################
 
 	.exit:
@@ -72,12 +80,14 @@ clear_screen:
 get_gop_framebuffer:
 	sub rsp, 4 * 8 + 8
 
+	; MICROSOFT FUNCTION CALL START
 	mov r10, QWORD [system_table_ptr] 
 	mov r10, QWORD [r10 + EFI_SYSTEM_TABLE.BootServices]
 	mov rcx, graphics_output_protocol_guid
 	mov rdx, 0
 	mov r8, efi_graphics_output_protocol_struc_ptr 
 	call [r10 + EFI_BOOT_SERVICES.LocateProtocol]
+	; MICROSOFT FUNCTION CALL END
 	cmp rax, 0
 	je .graphics_device_found
 	push rax ; Graphics device not found, print warning, return and exit with error
@@ -374,45 +384,45 @@ section .rdata align=16
 		alignb 8
 	endstruc
 
-struc EFI_PIXEL_BITMASK
-	.RedMask		UINT32
-	UINT32_ALIGN
-	.GreenMask		UINT32
-	UINT32_ALIGN
-	.BlueMask		UINT32
-	UINT32_ALIGN
-	.ReservedMask	UINT32
-	alignb 4
-endstruc
+	struc EFI_PIXEL_BITMASK
+		.RedMask		UINT32
+		UINT32_ALIGN
+		.GreenMask		UINT32
+		UINT32_ALIGN
+		.BlueMask		UINT32
+		UINT32_ALIGN
+		.ReservedMask	UINT32
+		alignb 4
+	endstruc
 
 
-struc EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
-	.Version				UINT32
-	UINT32_ALIGN
-	.HorizontalResolution	UINT32
-	UINT32_ALIGN
-	.VerticalResolution		UINT32
-	UINT32_ALIGN
-	.PixelFormat			UINT32
-	UINT32_ALIGN
-	.PixelInformation		resb EFI_PIXEL_BITMASK_size
-	UINT32_ALIGN
-	.PixelsPerScanLine		UINT32
-	alignb 4
-endstruc
+	struc EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
+		.Version				UINT32
+		UINT32_ALIGN
+		.HorizontalResolution	UINT32
+		UINT32_ALIGN
+		.VerticalResolution		UINT32
+		UINT32_ALIGN
+		.PixelFormat			UINT32
+		UINT32_ALIGN
+		.PixelInformation		resb EFI_PIXEL_BITMASK_size
+		UINT32_ALIGN
+		.PixelsPerScanLine		UINT32
+		alignb 4
+	endstruc
 
-struc framebuffer_struct
-	.BaseAddress		UINT64
-	UINT64_ALIGN
-	.BufferSize			UINT64
-	UINT32_ALIGN
-	.Width				UINT32
-	UINT32_ALIGN
-	.Height				UINT32
-	UINT32_ALIGN
-	.PixelsPerScanline	UINT32
-	alignb 8
-endstruc
+	struc framebuffer_struct
+		.BaseAddress		UINT64
+		UINT64_ALIGN
+		.BufferSize			UINT64
+		UINT32_ALIGN
+		.Width				UINT32
+		UINT32_ALIGN
+		.Height				UINT32
+		UINT32_ALIGN
+		.PixelsPerScanline	UINT32
+		alignb 8
+	endstruc
 
 	struc EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL ;nasm sees this as 80 bytes
 		.Reset             POINTER
