@@ -55,12 +55,13 @@ start:
 
 ; ########## EXIT PROGRAM ################
 
-	.exit:
-		jmp $
-		mov rax, 0
-		;mov rsp, QWORD [stack_init]
-		add rsp, 4 * 8 + 8
-		retn
+exit:
+	xor rax, rax
+error_exit:
+	jmp $
+	;mov rsp, QWORD [stack_init]
+	add rsp, 4 * 8 + 8
+	retn
 
 ; ############## SUBROUTINES #########################33
 
@@ -152,22 +153,6 @@ print_string: ;in: rcx (address of string), out: rax (return value of OutputStri
 	add rsp, 4 * 8 + 8
 	ret
 
-; noreturn function
-print_error_exit:
-	;prologue
-	;stack misaligned by 8
-	sub rsp, 4 * 8 + 8 ; shadow space + align to 16 bytes
-
-	mov rcx, generic_error_exit_str
-	call print_string
-error_exit:
-	jmp $
-	mov rax, 1
-	mov rsp, QWORD [stack_init]
-	retn
-
-	;epilogue
-	add rsp, 4 * 8 + 8
 
 
 section .reloc ;UEFI supposedly requires this, even if empty
